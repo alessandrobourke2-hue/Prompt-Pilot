@@ -1,0 +1,184 @@
+@custom-variant dark (&:is(.dark *));
+
+/* -------------------------------------------------------------------------
+   PROMPTPILOT — Light-first design system
+   North star: Apple, Linear, Notion. Calm, confident, structured.
+   ------------------------------------------------------------------------- */
+
+:root {
+  /* Surfaces — very soft neutrals */
+  --background: #F8F9FB;
+  --surface: #F5F5F4;
+  --surface-elevated: #FFFFFF;
+  --overlay: rgba(0, 0, 0, 0.04);
+
+  /* Text — clear hierarchy, no harsh black */
+  --text-primary: #1a1a1a;
+  --text-secondary: #525252;
+  --text-muted: #737373;
+  --text-placeholder: #a3a3a3;
+
+  /* Borders — minimal, soft */
+  --border-subtle: #e7e5e4;
+  --border-default: #d6d3d1;
+
+  /* Accent — confident, not loud */
+  --accent: #1e3a5f;
+  --accent-hover: #2d4a6f;
+  --accent-muted: #3b82f6;
+
+  /* Semantic */
+  --error: #b91c1c;
+  --error-bg: #fef2f2;
+  --success: #15803d;
+  --success-bg: #f0fdf4;
+
+  /* Typography */
+  --font-serif: "Crimson Pro", Georgia, serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --text-h1: 40px;
+  --text-h2: 28px;
+  --text-h3: 20px;
+  --text-body: 16px;
+  --text-small: 14px;
+  --text-tiny: 12px;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* Spacing — generous */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --space-12: 96px;
+
+  /* Radius — 12–16px for calm, rounded UI */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  /* Shadows — subtle depth only */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
+
+  /* Motion — smooth, minimal */
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --dur-fast: 150ms;
+  --dur-normal: 220ms;
+}
+
+.dark {
+  --background: #18181b;
+  --surface: #27272a;
+  --surface-elevated: #3f3f46;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --border-subtle: #3f3f46;
+  --border-default: #52525b;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+}
+
+@layer base {
+  * {
+    @apply outline-none;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-relaxed);
+    color: var(--text-primary);
+    background-color: var(--background);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-h1);
+    line-height: var(--leading-tight);
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    font-size: var(--text-h2);
+    line-height: var(--leading-tight);
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-size: var(--text-h3);
+    line-height: var(--leading-normal);
+  }
+
+  p {
+    font-size: var(--text-body);
+    line-height: var(--leading-relaxed);
+    color: var(--text-primary);
+  }
+
+  @media (max-width: 768px) {
+    h1 { font-size: 32px; }
+    h2 { font-size: 24px; }
+    h3 { font-size: 18px; }
+  }
+
+  input, textarea, select {
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    color: var(--text-primary);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-placeholder);
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  button {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    cursor: pointer;
+  }
+}
