@@ -35,6 +35,10 @@ export const router = createBrowserRouter([
     element: <ProcessingPage />,
   },
   {
+    path: "/app/workflow-processing",
+    element: <ProcessingPage useWorkflow />,
+  },
+  {
     path: "/results",
     element: <ResultsPage />,
   },

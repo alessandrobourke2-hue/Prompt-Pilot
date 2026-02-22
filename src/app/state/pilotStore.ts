@@ -14,6 +14,14 @@ export type SavedPrompt = {
   lastUsed?: string;
 };
 
+export type WorkflowResult = {
+  id: string;
+  workflowId: string;
+  createdAt: string;
+  outputs: Record<string, string>;
+  trace: Array<{ step_id: string; status: string; latency_ms: number }>;
+};
+
 type PersistedStateV1 = {
   version: 1;
   usage: {
@@ -37,6 +45,7 @@ type PersistedStateV1 = {
     saved: SavedPrompt[];
     lastPromptId?: string; // Track the last worked-on prompt
   };
+  savedWorkflowResults: WorkflowResult[];
 };
 
 type Actions = {
@@ -52,6 +61,7 @@ type Actions = {
   setLastPrompt: (promptId: string) => void;
   getRecentPrompts: () => SavedPrompt[];
   getLastPrompt: () => SavedPrompt | null;
+  saveWorkflowResult: (result: WorkflowResult) => void;
 };
 
 export type PilotStore = PersistedStateV1 & Actions;
@@ -71,6 +81,7 @@ const initialState: Omit<PersistedStateV1, 'version'> = {
   prompts: {
     saved: [],
   },
+  savedWorkflowResults: [],
 };
 
 export const usePilotStore = create<PilotStore>()(
@@ -147,6 +158,10 @@ export const usePilotStore = create<PilotStore>()(
         if (!state.prompts.lastPromptId) return null;
         return state.prompts.saved.find(p => p.id === state.prompts.lastPromptId) || null;
       },
+      saveWorkflowResult: (result) =>
+        set((state) => ({
+          savedWorkflowResults: [result, ...state.savedWorkflowResults].slice(0, 10),
+        })),
     }),
     {
       name: 'prompt-pilot-storage',
@@ -156,6 +171,7 @@ export const usePilotStore = create<PilotStore>()(
         flags: state.flags,
         account: state.account,
         prompts: state.prompts,
+        savedWorkflowResults: state.savedWorkflowResults,
       }),
     }
   )

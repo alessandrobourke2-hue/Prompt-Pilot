@@ -1,3 +1,4 @@
+// Migrated from OpenAI to Anthropic Claude
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
@@ -5,8 +6,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const app = new Hono();
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-4-6";
 
 // ============================================================================
 // TYPES
@@ -383,8 +384,8 @@ app.post("/make-server-e52adb92/enhance", async (c) => {
       return c.json({ error: "Input must be less than 8000 characters" }, 400);
     }
 
-    if (!OPENAI_API_KEY) {
-      console.error("OPENAI_API_KEY not configured, using fallback");
+    if (!ANTHROPIC_API_KEY) {
+      console.error("ANTHROPIC_API_KEY not configured, using fallback");
       return c.json(getFallbackResponse(input));
     }
 
@@ -494,33 +495,33 @@ Without these sections, the response is invalid.`;
       return hasRole && hasGoal && hasOutputFormat && hasConstraints && hasEnoughImprovements;
     };
 
-    // Function to call OpenAI (can retry once for quality)
-    const callOpenAI = async (isRetry: boolean = false): Promise<any> => {
+    // Function to call Anthropic (can retry once for quality)
+    const callAnthropic = async (isRetry: boolean = false): Promise<any> => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
 
       try {
         let systemPromptToUse = systemPrompt;
-        
+
         if (isRetry) {
           systemPromptToUse += `\n\nIMPORTANT: Previous attempt failed quality checks. Please ensure the enhanced_prompt includes ALL required sections with proper labels: Role:, Goal:, Output format:, Constraints:, Success criteria:. And provide at least 3 improvements.`;
         }
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY!,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
           },
           body: JSON.stringify({
-            model: OPENAI_MODEL,
+            model: ANTHROPIC_MODEL,
+            system: systemPromptToUse,
             messages: [
-              { role: "system", content: systemPromptToUse },
               { role: "user", content: userPrompt }
             ],
             temperature: tokenConfig.temperature,
             max_tokens: tokenConfig.maxTokens,
-            response_format: { type: "json_object" }
           }),
           signal: controller.signal
         });
@@ -529,15 +530,15 @@ Without these sections, the response is invalid.`;
 
         if (!response.ok) {
           const errorData = await response.text();
-          console.error(`OpenAI API error: ${response.status} - ${errorData}`);
+          console.error(`Anthropic API error: ${response.status} - ${errorData}`);
           return null;
         }
 
         const data = await response.json();
-        const aiContent = data.choices[0]?.message?.content;
-        
+        const aiContent = data.content[0]?.text;
+
         if (!aiContent) {
-          console.error("No content in OpenAI response");
+          console.error("No content in Anthropic response");
           return null;
         }
 
@@ -550,23 +551,23 @@ Without these sections, the response is invalid.`;
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        
+
         if (fetchError.name === 'AbortError') {
-          console.error("OpenAI request timeout");
+          console.error("Anthropic request timeout");
         } else {
-          console.error("OpenAI request failed:", fetchError);
+          console.error("Anthropic request failed:", fetchError);
         }
-        
+
         return null;
       }
     };
 
     // Try to get a good response, with one retry if quality check fails
-    let parsedContent = await callOpenAI(false);
-    
+    let parsedContent = await callAnthropic(false);
+
     if (parsedContent && !checkQuality(parsedContent)) {
       console.log("Quality check failed, retrying with quality fix instruction...");
-      const retryContent = await callOpenAI(true);
+      const retryContent = await callAnthropic(true);
       if (retryContent && checkQuality(retryContent)) {
         parsedContent = retryContent;
       }
@@ -593,7 +594,7 @@ Without these sections, the response is invalid.`;
       assumptions: Array.isArray(parsedContent.assumptions) ? parsedContent.assumptions.slice(0, 3) : [],
       follow_up_questions: Array.isArray(parsedContent.follow_up_questions) ? parsedContent.follow_up_questions.slice(0, 2) : [],
       meta: {
-        model: OPENAI_MODEL,
+        model: ANTHROPIC_MODEL,
         latency_ms: latency,
         intent_detected: intent,
         routed_by: routedBy,
