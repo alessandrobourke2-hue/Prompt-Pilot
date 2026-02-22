@@ -12,11 +12,16 @@ import { UsagePage } from "./pages/PlaceholderPages";
 import { HistoryPage } from "./pages/HistoryPage";
 import { AccountPage } from "./pages/AccountPage";
 import { PromptLibrary } from "./pages/PromptLibraryNew";
+import { AuthPage } from "./pages/AuthPage";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <LandingPage />,
+  },
+  {
+    path: "/login",
+    element: <AuthPage />,
   },
   {
     path: "/pricing",

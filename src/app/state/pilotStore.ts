@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabase } from '../../utils/supabase/client';
 
 export type PricingTier = "free" | "pro" | "team";
 
@@ -62,6 +63,7 @@ type Actions = {
   getRecentPrompts: () => SavedPrompt[];
   getLastPrompt: () => SavedPrompt | null;
   saveWorkflowResult: (result: WorkflowResult) => void;
+  hydratePrompts: (prompts: SavedPrompt[]) => void;
 };
 
 export type PilotStore = PersistedStateV1 & Actions;
@@ -135,13 +137,31 @@ export const usePilotStore = create<PilotStore>()(
         set((state) => ({
           account: { ...state.account, tier },
         })),
-      savePrompt: (prompt) =>
+      savePrompt: (prompt) => {
         set((state) => ({
           prompts: {
             ...state.prompts,
-            saved: [prompt, ...state.prompts.saved.filter(p => p.id !== prompt.id)].slice(0, 20), // Keep max 20
+            saved: [prompt, ...state.prompts.saved.filter(p => p.id !== prompt.id)].slice(0, 20),
           },
-        })),
+        }));
+        // Fire-and-forget sync to Supabase when authenticated
+        const { account } = get();
+        if (account.isAuthed && account.userId) {
+          supabase.from('saved_prompts').upsert({
+            id: prompt.id,
+            user_id: account.userId,
+            title: prompt.title,
+            input: prompt.input,
+            enhanced_prompt: prompt.enhancedPrompt,
+            improvements: prompt.improvements,
+            structure: prompt.structure ?? null,
+            created_at: prompt.createdAt,
+            last_used: prompt.lastUsed ?? null,
+          }).then(({ error }) => {
+            if (error) console.error('Failed to sync prompt to Supabase:', error.message);
+          });
+        }
+      },
       setLastPrompt: (promptId) =>
         set((state) => ({
           prompts: {
@@ -161,6 +181,13 @@ export const usePilotStore = create<PilotStore>()(
       saveWorkflowResult: (result) =>
         set((state) => ({
           savedWorkflowResults: [result, ...state.savedWorkflowResults].slice(0, 10),
+        })),
+      hydratePrompts: (prompts) =>
+        set((state) => ({
+          prompts: {
+            ...state.prompts,
+            saved: prompts,
+          },
         })),
     }),
     {
