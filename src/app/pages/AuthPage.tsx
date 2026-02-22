@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 
 type Mode = 'signin' | 'signup';
 
-const REDIRECT_URL = `${window.location.origin}/app`;
+const REDIRECT_URL = `${window.location.origin}/auth/callback`;
 
 // ── Social login buttons ──────────────────────────────────────────────────────
 

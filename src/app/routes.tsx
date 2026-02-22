@@ -13,6 +13,7 @@ import { HistoryPage } from "./pages/HistoryPage";
 import { AccountPage } from "./pages/AccountPage";
 import { PromptLibrary } from "./pages/PromptLibraryNew";
 import { AuthPage } from "./pages/AuthPage";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +23,10 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: <AuthPage />,
+  },
+  {
+    path: "/auth/callback",
+    element: <AuthCallbackPage />,
   },
   {
     path: "/pricing",
