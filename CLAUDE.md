@@ -23,19 +23,25 @@ A prompt enhancement tool. Users paste a rough prompt, the app uses Anthropic Cl
 PromptPilot/
 ├── src/
 │   ├── app/
-│   │   ├── pages/          # Route-level components
-│   │   ├── components/     # Shared UI (Button, Card, Modal, Toast…)
+│   │   ├── App.tsx             # Root — global onAuthStateChange listener
+│   │   ├── pages/              # Route-level components
+│   │   │   └── AuthPage.tsx    # /login — Google, Apple, email/password
+│   │   ├── components/         # Shared UI (Button, Card, Modal, Toast…)
 │   │   ├── state/
 │   │   │   └── pilotStore.ts   # Zustand store (persisted)
 │   │   ├── utils/
 │   │   │   ├── workflowApi.ts  # Workflow engine client + SAMPLE_WORKFLOW
 │   │   │   └── demoData.ts
 │   │   └── routes.tsx
-│   └── ...
+│   └── utils/
+│       └── supabase/
+│           └── client.ts       # Supabase client (auth options configured)
 ├── supabase/
+│   ├── migrations/
+│   │   └── 20260223000000_saved_prompts.sql
 │   └── functions/
 │       ├── server/             # Main enhance + signup endpoint
-│       │   └── index.tsx
+│       │   └── index.ts
 │       ├── workflow-engine/    # Multi-step AI chaining engine
 │       │   └── index.ts
 │       ├── enhance-prompt/
@@ -79,6 +85,44 @@ Also exposes `GET /workflow-engine/health`.
 
 ---
 
+## Auth Architecture
+
+Auth state is managed globally in `App.tsx` via `supabase.auth.onAuthStateChange`. This fires on:
+- Page load with existing session (including post-OAuth redirect)
+- Login / logout
+- Token refresh
+
+On session start it calls `setAuth()` then fetches and hydrates `saved_prompts` from Supabase.
+On session end it calls `logout()`.
+
+**OAuth flow**: `signInWithOAuth({ provider, options: { redirectTo: origin + '/app' } })` — browser redirects to provider and back. The Supabase client detects the token in the URL automatically (`detectSessionInUrl: true`).
+
+**To enable OAuth providers**: Supabase Dashboard → Authentication → Providers → enable Google and Apple with their respective credentials. Also add allowed Redirect URLs (including `http://localhost:5173` for dev).
+
+---
+
+## Database
+
+### `saved_prompts` table
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | matches `SavedPrompt.id` in store |
+| `user_id` | uuid FK → auth.users | cascade delete |
+| `title` | text | |
+| `input` | text | |
+| `enhanced_prompt` | text | camelCase `enhancedPrompt` in store |
+| `improvements` | jsonb | string array |
+| `structure` | text | nullable |
+| `created_at` | timestamptz | |
+| `last_used` | timestamptz | nullable |
+
+RLS enabled — users can only read/write their own rows (`auth.uid() = user_id`).
+
+Migration: `supabase/migrations/20260223000000_saved_prompts.sql`
+Run with: `supabase db push`
+
+---
+
 ## Frontend State (`pilotStore.ts`)
 
 Persisted to `localStorage` via Zustand `persist`. Key slices:
@@ -91,7 +135,10 @@ prompts:   { saved: SavedPrompt[], lastPromptId }
 savedWorkflowResults: WorkflowResult[]   // max 10, newest first
 ```
 
-Key actions: `savePrompt`, `saveWorkflowResult`, `setAuth`, `logout`, `incrementEnhance`
+Key actions:
+- `savePrompt` — writes to local store + fire-and-forget upsert to `saved_prompts` when authed
+- `hydratePrompts` — replaces local saved prompts with data fetched from Supabase on login
+- `saveWorkflowResult`, `setAuth`, `logout`, `incrementEnhance`
 
 ---
 
@@ -100,6 +147,7 @@ Key actions: `savePrompt`, `saveWorkflowResult`, `setAuth`, `logout`, `increment
 | Path | Component | Notes |
 |------|-----------|-------|
 | `/` | `LandingPage` | Main enhance flow (inline API call) |
+| `/login` | `AuthPage` | Google, Apple, email/password |
 | `/processing` | `ProcessingPage` | Animation only, navigates to `/results` |
 | `/app/workflow-processing` | `ProcessingPage useWorkflow` | Calls workflow engine, reads `location.state.input` |
 | `/app` | `CommandCenter` | Authenticated app shell |
@@ -137,12 +185,19 @@ Set with: `supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`
 - [x] `src/app/utils/workflowApi.ts` with `executeWorkflow` + `SAMPLE_WORKFLOW`
 - [x] `ProcessingPage` updated with `useWorkflow` prop
 - [x] `/app/workflow-processing` route wired up
+- [x] Supabase Auth: Google OAuth, Apple OAuth, email/password (`/login`)
+- [x] Global auth state listener in `App.tsx` (`onAuthStateChange`)
+- [x] `saved_prompts` table with RLS (migration applied)
+- [x] `savePrompt` syncs to Supabase DB when authenticated
+- [x] `hydratePrompts` loads DB prompts into store on login
 
 ---
 
 ## What's Next
 
 ### Immediate
+- [ ] Enable Google + Apple OAuth providers in Supabase Dashboard (Authentication → Providers)
+- [ ] Add redirect URLs in Supabase Dashboard (Authentication → URL Configuration)
 - [ ] Surface workflow results in the UI (a `WorkflowResultsPage` or panel in `HistoryPage`)
 - [ ] Wire a trigger in the app that navigates to `/app/workflow-processing` with real input
 - [ ] Add error state to `ProcessingPage` (currently always navigates to `/results` even on failure)
