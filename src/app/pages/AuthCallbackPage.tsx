@@ -1,33 +1,69 @@
 import { useEffect } from 'react';
 import * as ReactRouter from 'react-router';
 const { useNavigate } = ReactRouter;
-import { supabase } from '../../utils/supabase/client';
+import { supabase, isSupabaseConfigured } from '../../utils/supabase/client';
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Supabase detects the token from the URL hash automatically (detectSessionInUrl: true).
-    // onAuthStateChange in App.tsx handles setAuth + prompt hydration.
-    // We just need to wait for the session to be established then redirect.
+    // If Supabase isn't configured (missing env vars at build time), bail out
+    // immediately — the OAuth flow could never have started in the first place.
+    if (!isSupabaseConfigured) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    if (code) {
+      // PKCE flow: exchange the one-time code for a session.
+      // The code_verifier was stored in localStorage by the supabase client
+      // when signInWithOAuth was called, so this works without cookies and
+      // avoids Chrome's cross-site state partitioning warning.
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          console.error('[PromptPilot] OAuth code exchange failed:', error.message);
+          navigate('/login', { replace: true });
+        } else {
+          navigate('/app', { replace: true });
+        }
+      });
+      return;
+    }
+
+    // Fallback: implicit flow or page refresh — check for an existing session.
+    // App.tsx onAuthStateChange handles setAuth + prompt hydration in parallel.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        navigate('/app', { replace: true });
+      }
+    });
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate('/app', { replace: true });
-      } else {
-        // Session not ready yet — listen for it
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (session) {
-            subscription.unsubscribe();
-            navigate('/app', { replace: true });
-          }
-        });
       }
     });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <p className="text-text-secondary text-[15px]">Signing you in…</p>
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ backgroundColor: 'var(--background)' }}
+    >
+      <div className="text-center">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center font-serif font-bold text-lg mx-auto mb-4"
+          style={{ backgroundColor: '#1a1a1a', color: '#fff' }}
+        >
+          P
+        </div>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Signing you in…</p>
+      </div>
     </div>
   );
 }

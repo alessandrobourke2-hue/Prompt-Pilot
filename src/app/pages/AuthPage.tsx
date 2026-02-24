@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import * as ReactRouter from 'react-router';
 const { useNavigate } = ReactRouter;
-import { supabase } from '../../utils/supabase/client';
-import { Button } from '../components/Button';
+import { supabase, isSupabaseConfigured } from '../../utils/supabase/client';
 
 type Mode = 'signin' | 'signup';
 
 const REDIRECT_URL = `${window.location.origin}/auth/callback`;
-
-// ── Social login buttons ──────────────────────────────────────────────────────
 
 function GoogleIcon() {
   return (
@@ -24,45 +21,43 @@ function GoogleIcon() {
 function AppleIcon() {
   return (
     <svg width="16" height="18" viewBox="0 0 16 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M13.173 9.497c-.02-2.108 1.724-3.128 1.803-3.177-0.985-1.44-2.517-1.637-3.058-1.657-1.299-.132-2.543.77-3.202.77-.659 0-1.672-.753-2.75-.731-1.41.02-2.715.82-3.44 2.082-1.473 2.552-.376 6.327 1.055 8.396.703 1.013 1.538 2.147 2.632 2.106 1.058-.042 1.456-.681 2.734-.681 1.278 0 1.632.681 2.75.66 1.138-.021 1.857-1.032 2.552-2.05.807-1.175 1.139-2.314 1.158-2.374-.025-.01-2.213-.85-2.234-3.344ZM11.07 3.17C11.638 2.48 12.025 1.524 11.92.55c-.83.035-1.836.556-2.43 1.228-.534.612-.999 1.588-.874 2.524.927.07 1.876-.47 2.454-1.132Z" fill="currentColor"/>
+      <path d="M13.173 9.497c-.02-2.108 1.724-3.128 1.803-3.177-.985-1.44-2.517-1.637-3.058-1.657-1.299-.132-2.543.77-3.202.77-.659 0-1.672-.753-2.75-.731-1.41.02-2.715.82-3.44 2.082-1.473 2.552-.376 6.327 1.055 8.396.703 1.013 1.538 2.147 2.632 2.106 1.058-.042 1.456-.681 2.734-.681 1.278 0 1.632.681 2.75.66 1.138-.021 1.857-1.032 2.552-2.05.807-1.175 1.139-2.314 1.158-2.374-.025-.01-2.213-.85-2.234-3.344ZM11.07 3.17C11.638 2.48 12.025 1.524 11.92.55c-.83.035-1.836.556-2.43 1.228-.534.612-.999 1.588-.874 2.524.927.07 1.876-.47 2.454-1.132Z" fill="currentColor"/>
     </svg>
   );
 }
 
-// ── Input primitive ───────────────────────────────────────────────────────────
-
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
-}
-
-function Field({ label, id, ...props }: InputProps & { id: string }) {
+function MissingConfigBanner() {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[13px] font-medium text-charcoal">
-        {label}
-      </label>
-      <input
-        id={id}
-        className="w-full px-4 py-3 rounded-[6px] border border-border-default bg-white text-charcoal text-[15px] placeholder:text-text-secondary outline-none focus:border-charcoal transition-colors duration-[200ms]"
-        {...props}
-      />
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6"
+      style={{ backgroundColor: 'var(--background)' }}
+    >
+      <div className="w-full max-w-[400px] text-center">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center font-serif font-bold text-xl mx-auto mb-6"
+          style={{ backgroundColor: '#1a1a1a', color: '#fff' }}
+        >
+          P
+        </div>
+        <h1 className="font-serif text-xl font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
+          App configuration missing
+        </h1>
+        <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--text-secondary)' }}>
+          <code className="text-xs px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--surface-raised)' }}>
+            VITE_SUPABASE_URL
+          </code>{' '}and{' '}
+          <code className="text-xs px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--surface-raised)' }}>
+            VITE_SUPABASE_ANON_KEY
+          </code>{' '}
+          are not set.
+        </p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          Add them in Vercel → Project Settings → Environment Variables, then redeploy.
+        </p>
+      </div>
     </div>
   );
 }
-
-// ── Divider ───────────────────────────────────────────────────────────────────
-
-function Divider({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 h-px bg-border-subtle" />
-      <span className="text-[12px] text-text-secondary uppercase tracking-wide">{label}</span>
-      <div className="flex-1 h-px bg-border-subtle" />
-    </div>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -75,8 +70,6 @@ export function AuthPage() {
 
   const clearError = () => setError(null);
 
-  // ── OAuth handlers ──────────────────────────────────────────────────────────
-
   const handleGoogleLogin = async () => {
     setLoading(true);
     clearError();
@@ -88,7 +81,6 @@ export function AuthPage() {
       setError(error.message);
       setLoading(false);
     }
-    // On success the browser navigates away; loading stays true intentionally
   };
 
   const handleAppleLogin = async () => {
@@ -103,8 +95,6 @@ export function AuthPage() {
       setLoading(false);
     }
   };
-
-  // ── Email handler ───────────────────────────────────────────────────────────
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +112,6 @@ export function AuthPage() {
         setLoading(false);
         return;
       }
-      // onAuthStateChange in App.tsx handles setAuth + hydration
       navigate('/app');
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -135,36 +124,57 @@ export function AuthPage() {
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  if (!isSupabaseConfigured) return <MissingConfigBanner />;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-[420px]">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6"
+      style={{ backgroundColor: 'var(--background)' }}
+    >
+      <div className="w-full max-w-[400px]">
 
-        {/* Logo / title */}
+        {/* Logo */}
         <div className="text-center mb-10">
-          <h1 className="text-[28px] font-serif font-medium text-charcoal mb-2">
-            Prompt Pilot
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center font-serif font-bold text-xl mx-auto mb-4"
+            style={{ backgroundColor: '#1a1a1a', color: '#fff' }}
+          >
+            P
+          </div>
+          <h1 className="font-serif text-2xl font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+            PromptPilot
           </h1>
-          <p className="text-[var(--text-body)] text-text-secondary">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             {mode === 'signin' ? 'Sign in to your account' : 'Create your account'}
           </p>
         </div>
 
-        {/* Error banner */}
+        {/* Error */}
         {error && (
-          <div className="mb-6 px-4 py-3 rounded-[6px] bg-red-50 border border-red-200 text-[14px] text-red-700">
+          <div
+            className="mb-5 px-4 py-3 rounded-xl text-sm"
+            style={{
+              backgroundColor: 'var(--error-bg)',
+              border: '1px solid #fca5a5',
+              color: 'var(--error)',
+            }}
+          >
             {error}
           </div>
         )}
 
-        {/* Social buttons */}
+        {/* OAuth buttons */}
         <div className="flex flex-col gap-3 mb-6">
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-[6px] border border-border-default bg-white text-charcoal text-[15px] font-medium hover:bg-surface transition-colors duration-[200ms] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
+            style={{
+              border: '1px solid var(--border-default)',
+              backgroundColor: '#ffffff',
+              color: 'var(--text-primary)',
+            }}
           >
             <GoogleIcon />
             Continue with Google
@@ -174,72 +184,105 @@ export function AuthPage() {
             type="button"
             onClick={handleAppleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-[6px] bg-charcoal text-white text-[15px] font-medium hover:opacity-90 transition-opacity duration-[200ms] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+            style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}
           >
             <AppleIcon />
             Continue with Apple
           </button>
         </div>
 
-        <Divider label="or" />
+        {/* Divider */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+          <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>or</span>
+          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-subtle)' }} />
+        </div>
 
-        {/* Email / password form */}
-        <form onSubmit={handleEmailSubmit} className="mt-6 flex flex-col gap-4">
+        {/* Email/password form */}
+        <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
           {mode === 'signup' && (
-            <Field
-              id="name"
-              label="Full name"
-              type="text"
-              placeholder="Alex Johnson"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                Full name
+              </label>
+              <input
+                type="text"
+                placeholder="Alex Johnson"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-xl text-sm transition-all outline-none"
+                style={{
+                  border: '1px solid var(--border-default)',
+                  backgroundColor: '#ffffff',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
           )}
 
-          <Field
-            id="email"
-            label="Email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+              Email
+            </label>
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-xl text-sm transition-all outline-none"
+              style={{
+                border: '1px solid var(--border-default)',
+                backgroundColor: '#ffffff',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
 
-          <Field
-            id="password"
-            label="Password"
-            type="password"
-            placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={mode === 'signup' ? 8 : undefined}
-            required
-          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={mode === 'signup' ? 8 : undefined}
+              required
+              className="w-full px-4 py-3 rounded-xl text-sm transition-all outline-none"
+              style={{
+                border: '1px solid var(--border-default)',
+                backgroundColor: '#ffffff',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="large"
             disabled={loading}
-            className="w-full mt-2"
+            className="w-full py-3 rounded-xl text-sm font-medium transition-all mt-2 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+            style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}
           >
             {loading
               ? 'Please wait…'
               : mode === 'signin'
               ? 'Sign in'
               : 'Create account'}
-          </Button>
+          </button>
         </form>
 
         {/* Toggle mode */}
-        <p className="mt-8 text-center text-[14px] text-text-secondary">
+        <p className="mt-6 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
           {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
           <button
             type="button"
             onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); clearError(); }}
-            className="text-charcoal font-medium underline underline-offset-2 hover:opacity-70 transition-opacity"
+            className="font-medium underline underline-offset-2 hover:opacity-70 transition-opacity"
+            style={{ color: 'var(--text-primary)' }}
           >
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>
@@ -250,7 +293,8 @@ export function AuthPage() {
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="text-[13px] text-text-secondary hover:text-charcoal transition-colors"
+            className="text-xs hover:opacity-70 transition-opacity"
+            style={{ color: 'var(--text-muted)' }}
           >
             ← Back to home
           </button>

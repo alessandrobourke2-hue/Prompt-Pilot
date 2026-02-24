@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { RouterProvider } from "react-router";
 import { router } from "./routes.tsx";
-import { supabase } from "../utils/supabase/client";
+import { supabase, isSupabaseConfigured } from "../utils/supabase/client";
 import { usePilotStore } from "./state/pilotStore";
 import type { SavedPrompt, OnboardingProfile } from "./state/pilotStore";
 
@@ -77,6 +77,13 @@ export default function App() {
   const setOnboardingProfile = usePilotStore((s) => s.setOnboardingProfile);
 
   useEffect(() => {
+    // If Supabase isn't configured (env vars missing at build time) skip all
+    // auth setup and mark ready immediately so the app can render an error UI.
+    if (!isSupabaseConfigured) {
+      setAuthReady();
+      return;
+    }
+
     // Listen for future auth state changes (login, logout, token refresh).
     // Set up BEFORE getSession so we never miss an event.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
