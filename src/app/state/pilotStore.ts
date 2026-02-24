@@ -219,10 +219,10 @@ export const usePilotStore = create<PilotStore>()(
           },
         })),
       setOnboardingProfile: (profile) =>
-        set(() => ({
+        set((state) => ({
           onboardingProfile: profile,
           account: {
-            ...get().account,
+            ...state.account,
             onboardingComplete: profile.onboardingComplete,
           },
         })),
