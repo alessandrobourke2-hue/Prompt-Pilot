@@ -22,12 +22,27 @@ export function AuthCallbackPage() {
       // The code_verifier was stored in localStorage by the supabase client
       // when signInWithOAuth was called, so this works without cookies and
       // avoids Chrome's cross-site state partitioning warning.
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          console.error('[PromptPilot] OAuth code exchange failed:', error.message);
+      supabase.auth.exchangeCodeForSession(code).then(async ({ data: { session }, error }) => {
+        if (error || !session?.user) {
+          console.error('[PromptPilot] OAuth code exchange failed:', error?.message);
           navigate('/login', { replace: true });
-        } else {
+          return;
+        }
+        // Fetch the onboarding profile BEFORE navigating so RequireOnboarded
+        // sees the correct onboardingComplete value on the very first render.
+        // (App.tsx's onAuthStateChange also fetches this, but fire-and-forget —
+        // this explicit await eliminates the race that sent users to /onboarding
+        // even when they had already completed it.)
+        const { data: profile } = await supabase
+          .from('user_onboarding_profile')
+          .select('onboarding_complete')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (profile?.onboarding_complete) {
           navigate('/app', { replace: true });
+        } else {
+          navigate('/onboarding', { replace: true });
         }
       });
       return;

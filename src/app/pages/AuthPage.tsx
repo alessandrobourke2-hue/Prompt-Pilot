@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import * as ReactRouter from 'react-router';
-const { useNavigate } = ReactRouter;
+const { useNavigate, Navigate } = ReactRouter;
 import { supabase, isSupabaseConfigured } from '../../utils/supabase/client';
+import { usePilotStore } from '../state/pilotStore';
 
 type Mode = 'signin' | 'signup';
 
@@ -59,14 +60,29 @@ function MissingConfigBanner() {
   );
 }
 
+/** Fetch onboarding status then navigate to the correct destination. */
+async function navigateAfterLogin(userId: string, navigate: (path: string) => void) {
+  const { data: profile } = await supabase
+    .from('user_onboarding_profile')
+    .select('onboarding_complete')
+    .eq('user_id', userId)
+    .maybeSingle();
+  navigate(profile?.onboarding_complete ? '/app' : '/onboarding');
+}
+
 export function AuthPage() {
   const navigate = useNavigate();
+  const isAuthed = usePilotStore((s) => s.account.isAuthed);
+  const authReady = usePilotStore((s) => s.authReady);
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // If already authenticated, skip the login page entirely.
+  if (authReady && isAuthed) return <Navigate to="/app" replace />;
 
   const clearError = () => setError(null);
 
@@ -102,7 +118,7 @@ export function AuthPage() {
     clearError();
 
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { full_name: name } },
@@ -112,15 +128,21 @@ export function AuthPage() {
         setLoading(false);
         return;
       }
-      navigate('/app');
+      // New sign-ups always go to onboarding; no DB row exists yet.
+      if (data.user) {
+        navigate('/onboarding');
+      }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setError(error.message);
         setLoading(false);
         return;
       }
-      navigate('/app');
+      // Fetch profile before navigating so RequireOnboarded has correct state.
+      if (data.user) {
+        await navigateAfterLogin(data.user.id, navigate);
+      }
     }
   };
 

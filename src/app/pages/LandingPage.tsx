@@ -15,12 +15,8 @@ import { toast, Toaster } from 'sonner';
 import * as ReactRouter from 'react-router';
 const { Link, useNavigate } = ReactRouter;
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
+import { supabase, isSupabaseConfigured } from '../../utils/supabase/client';
+import { usePilotStore } from '../state/pilotStore';
 import { InteractiveBeforeAfter } from '../components/InteractiveBeforeAfter';
 import { FrameworkCarousel } from '../components/FrameworkCarousel';
 import { SideSignupModal } from '../components/SideSignupModal';
@@ -76,6 +72,10 @@ const ROTATING_PLACEHOLDERS = [
 // --- Components ---
 
 function Header() {
+  // Reads directly from the persisted store — updates reactively on login/logout
+  // without requiring a page reload.
+  const isAuthed = usePilotStore((s) => s.account.isAuthed);
+
   const scrollToDemo = () => {
     const element = document.getElementById('how-it-works');
     if (element) {
@@ -102,9 +102,16 @@ function Header() {
           <Chrome size={14} />
           Install Extension
         </a>
-        <Link to="/app" className="text-sm font-medium transition-colors duration-200 hover:opacity-80" style={{ color: 'var(--text-secondary)' }}>
-          Sign In
-        </Link>
+        {/* Reactively shows "Account" when authenticated, "Sign In" when not */}
+        {isAuthed ? (
+          <Link to="/app" className="text-sm font-medium transition-colors duration-200 hover:opacity-80" style={{ color: 'var(--text-secondary)' }}>
+            Account
+          </Link>
+        ) : (
+          <Link to="/login" className="text-sm font-medium transition-colors duration-200 hover:opacity-80" style={{ color: 'var(--text-secondary)' }}>
+            Sign In
+          </Link>
+        )}
       </div>
     </nav>
   );
@@ -808,16 +815,19 @@ function SignInModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSupabaseConfigured) {
+      toast.error('Auth is not configured. Contact support.');
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    
+
     if (error) {
       toast.error(error.message);
     } else {
       toast.success('Signed in successfully');
       onClose();
-      // Redirect to app dashboard
       window.location.href = '/app';
     }
   };
