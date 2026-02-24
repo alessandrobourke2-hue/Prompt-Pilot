@@ -23,6 +23,20 @@ export type WorkflowResult = {
   trace: Array<{ step_id: string; status: string; latency_ms: number }>;
 };
 
+export type OnboardingProfile = {
+  role: 'solo_professional' | 'small_business' | 'team_lead' | 'enterprise' | 'public_sector' | 'other';
+  roleOther?: string;
+  useCases: Array<'writing_comms' | 'policy_compliance' | 'client_reports' | 'team_briefs' | 'meeting_summaries' | 'research_analysis' | 'customer_service'>;
+  aiExperience: 'beginner' | 'occasional' | 'regular' | 'power_user';
+  tools: Array<'microsoft_365' | 'google_workspace' | 'notion' | 'slack' | 'email' | 'gov_systems' | 'none'>;
+  tonePreference: 'formal' | 'professional_approachable' | 'concise_direct' | 'warm_conversational';
+  primaryGoal: 'save_time' | 'quality_documents' | 'compliance_risk' | 'team_adoption' | 'less_overwhelmed';
+  displayName: string;
+  orgName?: string;
+  workspaceName?: string;
+  onboardingComplete: boolean;
+};
+
 type PersistedStateV1 = {
   version: 1;
   usage: {
@@ -40,13 +54,15 @@ type PersistedStateV1 = {
     tier: PricingTier;
     userId?: string;
     email?: string;
-    userName?: string; // Add user name for welcome message
+    userName?: string;
+    onboardingComplete: boolean;
   };
   prompts: {
     saved: SavedPrompt[];
-    lastPromptId?: string; // Track the last worked-on prompt
+    lastPromptId?: string;
   };
   savedWorkflowResults: WorkflowResult[];
+  onboardingProfile?: OnboardingProfile;
 };
 
 type Actions = {
@@ -64,6 +80,12 @@ type Actions = {
   getLastPrompt: () => SavedPrompt | null;
   saveWorkflowResult: (result: WorkflowResult) => void;
   hydratePrompts: (prompts: SavedPrompt[]) => void;
+  setOnboardingProfile: (profile: OnboardingProfile) => void;
+  setOnboardingComplete: () => void;
+  // authReady: true once the initial session check in App.tsx has completed.
+  // Not persisted — always starts false on each page load.
+  authReady: boolean;
+  setAuthReady: () => void;
 };
 
 export type PilotStore = PersistedStateV1 & Actions;
@@ -79,11 +101,13 @@ const initialState: Omit<PersistedStateV1, 'version'> = {
   account: {
     isAuthed: false,
     tier: "free",
+    onboardingComplete: false,
   },
   prompts: {
     saved: [],
   },
   savedWorkflowResults: [],
+  onboardingProfile: undefined,
 };
 
 export const usePilotStore = create<PilotStore>()(
@@ -91,6 +115,8 @@ export const usePilotStore = create<PilotStore>()(
     (set, get) => ({
       version: 1,
       ...initialState,
+      authReady: false,
+      setAuthReady: () => set({ authReady: true }),
       incrementEnhance: () =>
         set((state) => ({
           usage: {
@@ -130,8 +156,11 @@ export const usePilotStore = create<PilotStore>()(
           account: { ...state.account, isAuthed: true, userId, email, tier, userName },
         })),
       logout: () =>
-        set((state) => ({
+        set(() => ({
           account: { ...initialState.account },
+          prompts: { ...initialState.prompts },
+          savedWorkflowResults: [],
+          onboardingProfile: undefined,
         })),
       updateTier: (tier) =>
         set((state) => ({
@@ -189,6 +218,21 @@ export const usePilotStore = create<PilotStore>()(
             saved: prompts,
           },
         })),
+      setOnboardingProfile: (profile) =>
+        set(() => ({
+          onboardingProfile: profile,
+          account: {
+            ...get().account,
+            onboardingComplete: profile.onboardingComplete,
+          },
+        })),
+      setOnboardingComplete: () =>
+        set((state) => ({
+          account: { ...state.account, onboardingComplete: true },
+          onboardingProfile: state.onboardingProfile
+            ? { ...state.onboardingProfile, onboardingComplete: true }
+            : undefined,
+        })),
     }),
     {
       name: 'prompt-pilot-storage',
@@ -199,6 +243,7 @@ export const usePilotStore = create<PilotStore>()(
         account: state.account,
         prompts: state.prompts,
         savedWorkflowResults: state.savedWorkflowResults,
+        onboardingProfile: state.onboardingProfile,
       }),
     }
   )

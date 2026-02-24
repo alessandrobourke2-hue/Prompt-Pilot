@@ -1,3 +1,4 @@
+import React from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { LandingPage } from "./pages/LandingPage";
 import { PromptInputPage } from "./pages/PromptInputPage";
@@ -14,6 +15,48 @@ import { AccountPage } from "./pages/AccountPage";
 import { PromptLibrary } from "./pages/PromptLibraryNew";
 import { AuthPage } from "./pages/AuthPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
+import { usePilotStore } from "./state/pilotStore";
+
+// Guards the route: user must be authenticated.
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const isAuthed = usePilotStore((s) => s.account.isAuthed);
+  const authReady = usePilotStore((s) => s.authReady);
+
+  // Wait for App.tsx to finish the initial getSession() check before
+  // deciding to redirect. Without this, a logged-in user gets bounced
+  // to /login on every page load because isAuthed is briefly false.
+  if (!authReady) {
+    return null;
+  }
+
+  if (!isAuthed) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// Guards the route: user must be authenticated AND have completed onboarding.
+// Used for /dashboard and all /app/* routes so new users always see onboarding first.
+function RequireOnboarded({ children }: { children: React.ReactNode }) {
+  const isAuthed = usePilotStore((s) => s.account.isAuthed);
+  const authReady = usePilotStore((s) => s.authReady);
+  const onboardingComplete = usePilotStore((s) => s.account.onboardingComplete);
+
+  if (!authReady) {
+    return null;
+  }
+
+  if (!isAuthed) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!onboardingComplete) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 export const router = createBrowserRouter([
   {
@@ -32,9 +75,10 @@ export const router = createBrowserRouter([
     path: "/pricing",
     element: <PricingPage />,
   },
+  // Onboarding requires auth but NOT onboarding completion (avoids infinite redirect)
   {
     path: "/onboarding",
-    element: <OnboardingPage />,
+    element: <RequireAuth><OnboardingPage /></RequireAuth>,
   },
   {
     path: "/input",
@@ -45,48 +89,49 @@ export const router = createBrowserRouter([
     element: <ProcessingPage />,
   },
   {
-    path: "/app/workflow-processing",
-    element: <ProcessingPage useWorkflow />,
-  },
-  {
     path: "/results",
     element: <ResultsPage />,
-  },
-  {
-    path: "/dashboard",
-    element: <DashboardPage />,
   },
   {
     path: "/design-system",
     element: <DesignSystemPage />,
   },
-  // New authenticated app routes
+  // Dashboard requires full onboarding
+  {
+    path: "/dashboard",
+    element: <RequireOnboarded><DashboardPage /></RequireOnboarded>,
+  },
+  // Authenticated + onboarded app routes
   {
     path: "/app",
-    element: <CommandCenter />,
+    element: <RequireOnboarded><CommandCenter /></RequireOnboarded>,
   },
   {
     path: "/app/input",
-    element: <PromptInputPage />,
+    element: <RequireOnboarded><PromptInputPage /></RequireOnboarded>,
   },
   {
     path: "/app/library",
-    element: <PromptLibrary />,
+    element: <RequireOnboarded><PromptLibrary /></RequireOnboarded>,
   },
   {
     path: "/app/workflows",
-    element: <Navigate to="/app" replace />,
+    element: <RequireOnboarded><Navigate to="/app" replace /></RequireOnboarded>,
+  },
+  {
+    path: "/app/workflow-processing",
+    element: <RequireOnboarded><ProcessingPage useWorkflow /></RequireOnboarded>,
   },
   {
     path: "/app/history",
-    element: <HistoryPage />,
+    element: <RequireOnboarded><HistoryPage /></RequireOnboarded>,
   },
   {
     path: "/app/usage",
-    element: <UsagePage />,
+    element: <RequireOnboarded><UsagePage /></RequireOnboarded>,
   },
   {
     path: "/app/account",
-    element: <AccountPage />,
+    element: <RequireOnboarded><AccountPage /></RequireOnboarded>,
   },
 ]);
