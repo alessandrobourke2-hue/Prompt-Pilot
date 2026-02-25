@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import * as ReactRouter from "react-router";
-const { Link, useLocation, useNavigate } = ReactRouter;
+const { Link, useLocation } = ReactRouter;
 import {
   Home,
   Library,
@@ -15,6 +15,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { usePilotStore } from "../state/pilotStore";
+import { supabase } from "../../utils/supabase/client";
 
 function LeftRail() {
   const location = useLocation();
@@ -75,7 +76,6 @@ function LeftRail() {
 type AccountSection = "profile" | "security" | "billing";
 
 export function AccountPage() {
-  const navigate = useNavigate();
   const account = usePilotStore((s) => s.account);
   const logout = usePilotStore((s) => s.logout);
   const [section, setSection] = useState<AccountSection>("profile");
@@ -98,12 +98,15 @@ export function AccountPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleSignOut = () => {
-    ["pp_continue_prompt", "pp_hero_input", "pp_draft"].forEach((key) =>
-      sessionStorage.removeItem(key)
-    );
+  const handleSignOut = async () => {
+    // Clear all session storage
+    sessionStorage.clear();
+    // Sign out from Supabase — clears its session from localStorage
+    await supabase.auth.signOut();
+    // Clear Zustand auth + user data
     logout();
-    navigate("/", { replace: true });
+    // Full page reload to "/" so no stale React/Supabase state survives
+    window.location.replace('/');
   };
 
   return (

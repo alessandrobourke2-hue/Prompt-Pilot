@@ -95,7 +95,7 @@ Auth state is managed globally in `App.tsx` via `supabase.auth.onAuthStateChange
 On session start it calls `setAuth()` then fetches and hydrates `saved_prompts` from Supabase.
 On session end it calls `logout()`.
 
-**OAuth flow**: `signInWithOAuth({ provider, options: { redirectTo: origin + '/app' } })` — browser redirects to provider and back. The Supabase client detects the token in the URL automatically (`detectSessionInUrl: true`).
+**OAuth flow**: `signInWithOAuth({ provider, options: { redirectTo: origin + '/auth/callback' } })` — browser redirects to provider, then back to `/auth/callback`. That page subscribes to `onAuthStateChange` and navigates to `/app` once the session is established. The Supabase client detects the token in the URL automatically (`detectSessionInUrl: true`).
 
 **To enable OAuth providers**: Supabase Dashboard → Authentication → Providers → enable Google and Apple with their respective credentials. Also add allowed Redirect URLs (including `http://localhost:5173` for dev).
 
