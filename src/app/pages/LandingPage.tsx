@@ -1176,16 +1176,22 @@ export function LandingPage() {
   const autoResizeTextarea = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = 'auto';
-    const newHeight = Math.min(el.scrollHeight, 200);
-    el.style.height = `${newHeight}px`;
+    el.style.height = '0px';
+    const scrollH = el.scrollHeight;
+    const clamped = Math.max(28, Math.min(scrollH, 200));
+    el.style.height = `${clamped}px`;
 
-    setIsMultiLine(newHeight > 52);
+    const multi = clamped > 44;
+    setIsMultiLine(multi);
 
-    if (newHeight > 52 && inputWrapperRef.current) {
+    if (multi && inputWrapperRef.current) {
       inputWrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, []);
+
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [query, autoResizeTextarea]);
 
   // Rotate placeholders
   useEffect(() => {
@@ -1560,14 +1566,14 @@ export function LandingPage() {
                       requestAnimationFrame(autoResizeTextarea);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                         e.preventDefault();
                         handleSearch();
                       }
                     }}
                     placeholder={ROTATING_PLACEHOLDERS[placeholderIndex]} 
                     className="flex-1 bg-transparent border-none outline-none px-5 py-4 text-lg w-full font-medium placeholder:font-normal resize-none"
-                    style={{ color: 'var(--text-primary)', height: '28px', minHeight: '28px', maxHeight: '200px', overflowY: isMultiLine ? 'auto' : 'hidden' }}
+                    style={{ color: 'var(--text-primary)', minHeight: '28px', maxHeight: '200px', overflowY: isMultiLine ? 'auto' : 'hidden' }}
                     rows={1}
                     autoFocus
                   />
