@@ -20,10 +20,12 @@ import { usePilotStore } from '../state/pilotStore';
 import { InteractiveBeforeAfter } from '../components/InteractiveBeforeAfter';
 import { FrameworkCarousel } from '../components/FrameworkCarousel';
 import { SideSignupModal } from '../components/SideSignupModal';
+import { QuestionFlow } from '../components/QuestionFlow';
+import type { Question, QuestionAnswer } from '../components/QuestionFlow';
 
 // --- Types & Mock Data ---
 
-type Phase = 'input' | 'processing' | 'result';
+type Phase = 'input' | 'questioning' | 'processing' | 'result';
 type Intent = 'auto' | 'linkedin' | 'email' | 'outreach' | 'blog' | 'product' | 'strategy' | 'tech';
 
 interface PromptBlock {
@@ -579,90 +581,145 @@ function ResultCard({ result, onCopy, onReset, isFirstSearch, onElevate, isEleva
         {!dismissed && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
-            animate={
-              isDocked
-                ? {
-                    opacity: 1,
-                    y: 0,
-                    scale: 0.85,
-                    x: 'calc(50vw - 280px)', // Move to bottom-right
-                  }
-                : {
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                    x: 0,
-                  }
-            }
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{
-              type: 'spring',
-              damping: 25,
-              stiffness: 150,
-              duration: 0.32,
-            }}
-            className={`${
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 180 }}
+            className={
               isDocked
                 ? 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50'
                 : 'absolute top-6 left-1/2 -translate-x-1/2 z-10'
-            } max-w-2xl transition-all`}
-            style={{
-              transformOrigin: isDocked ? 'center' : 'center top',
-            }}
+            }
           >
-            <div className="bg-white/90 backdrop-blur-md shadow-xl rounded-[28px] border border-white/60 flex items-center gap-4 transition-all ${
-              isDocked ? 'h-[50px] px-5' : 'h-auto p-4'
-            }">
-              {!isDocked && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-3"
-                >
-                  <div className="text-2xl">💬</div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 text-sm">
-                      Your prompt is ready
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      Deploy instantly or copy to reuse anywhere
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              <div className="flex items-center gap-3 ml-auto">
+            {isDocked ? (
+              /* ── Docked: unified dark pill ── */
+              <div
+                className="flex items-center rounded-full overflow-hidden"
+                style={{
+                  backgroundColor: '#161618',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  boxShadow:
+                    '0 8px 32px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.07)',
+                }}
+              >
+                {/* Copy */}
                 <button
                   onClick={handleCopy}
-                  className={`flex items-center gap-2 bg-gray-100 text-gray-900 font-medium rounded-full hover:bg-gray-200 transition-all duration-[var(--dur-med)] ${
-                    isDocked ? 'px-4 py-2.5 text-base' : 'px-5 py-2.5 text-sm'
-                  }`}
+                  aria-label="Copy prompt"
+                  className="flex items-center justify-center w-[50px] h-[50px] transition-colors duration-150"
+                  style={{ color: 'rgba(255,255,255,0.38)' }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = 'rgba(255,255,255,0.85)')
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = 'rgba(255,255,255,0.38)')
+                  }
                 >
-                  <Copy size={isDocked ? 16 : 14} />
-                  {isDocked ? '' : 'Copy'}
+                  <Copy size={15} strokeWidth={1.8} />
                 </button>
 
+                {/* Divider */}
+                <div
+                  style={{
+                    width: '1px',
+                    height: '20px',
+                    backgroundColor: 'rgba(255,255,255,0.07)',
+                    flexShrink: 0,
+                  }}
+                />
+
+                {/* Use in ChatGPT */}
                 <button
                   onClick={handleUseChatGPT}
-                  className={`flex items-center gap-2 bg-black text-white font-medium rounded-full hover:bg-gray-800 transition-all duration-[var(--dur-med)] hover:-translate-y-0.5 shadow-lg shadow-black/10 ${
-                    isDocked ? 'px-5 py-2.5 text-base' : 'px-5 py-2.5 text-sm'
-                  }`}
+                  className="flex items-center gap-2 px-5 h-[50px] text-sm font-medium text-white transition-colors duration-150"
+                  style={{ backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      'rgba(255,255,255,0.06)')
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'transparent')
+                  }
                 >
-                  <ExternalLink size={isDocked ? 16 : 14} />
-                  {isDocked ? 'Use in ChatGPT' : 'Use in ChatGPT'}
+                  <ExternalLink size={14} strokeWidth={1.8} />
+                  Use in ChatGPT
                 </button>
 
-                {isDocked && (
-                  <button
-                    onClick={() => setDismissed(true)}
-                    className="text-gray-400 hover:text-gray-700 transition-colors p-2"
-                    aria-label="Dismiss"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+                {/* Divider */}
+                <div
+                  style={{
+                    width: '1px',
+                    height: '20px',
+                    backgroundColor: 'rgba(255,255,255,0.07)',
+                    flexShrink: 0,
+                  }}
+                />
+
+                {/* Dismiss */}
+                <button
+                  onClick={() => setDismissed(true)}
+                  aria-label="Dismiss"
+                  className="flex items-center justify-center w-[50px] h-[50px] transition-colors duration-150"
+                  style={{ color: 'rgba(255,255,255,0.22)' }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = 'rgba(255,255,255,0.22)')
+                  }
+                >
+                  <X size={14} strokeWidth={2} />
+                </button>
               </div>
-            </div>
+            ) : (
+              /* ── Hero: white notification banner ── */
+              <div
+                className="flex items-center gap-3 rounded-[28px] p-3 pr-4"
+                style={{
+                  backgroundColor: '#fff',
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+                }}
+              >
+                <div className="flex items-center gap-2.5 pl-1">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: 'var(--success-bg)' }}
+                  >
+                    <Check size={13} strokeWidth={2.8} style={{ color: 'var(--success)' }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
+                      Prompt ready
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Copy or open in ChatGPT
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ml-1">
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
+                    style={{
+                      backgroundColor: 'var(--surface)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <Copy size={13} />
+                    Copy
+                  </button>
+                  <button
+                    onClick={handleUseChatGPT}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-white transition-all duration-200 hover:-translate-y-0.5"
+                    style={{ backgroundColor: '#1a1a1a' }}
+                  >
+                    <ExternalLink size={13} />
+                    Use in ChatGPT
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -873,6 +930,171 @@ function SignInModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
   );
 }
 
+// ── Elevate Bottom Panel ──────────────────────────────────────────────────────
+
+function ElevateBottomPanel({
+  isOpen,
+  onElevate,
+  onSkip,
+}: {
+  isOpen: boolean;
+  onElevate: (depth: 'standard' | 'advanced' | 'expert') => void;
+  onSkip: () => void;
+}) {
+  const [depth, setDepth] = useState<'standard' | 'advanced' | 'expert'>('advanced');
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="elevate-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            onClick={onSkip}
+            className="fixed inset-0 z-40"
+            style={{ backgroundColor: 'rgba(0,0,0,0.18)' }}
+          />
+
+          {/* Panel */}
+          <motion.div
+            key="elevate-panel"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-0 left-0 right-0 z-50"
+          >
+            {/* Stainless steel surface */}
+            <div
+              style={{
+                background: 'linear-gradient(180deg, #1d2023 0%, #121416 100%)',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 -24px 60px rgba(0,0,0,0.55)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Brushed-metal highlight — light grazing the top edge */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '1px',
+                  background:
+                    'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.20) 50%, rgba(255,255,255,0.06) 80%, transparent 100%)',
+                  pointerEvents: 'none',
+                }}
+              />
+
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div
+                  style={{
+                    width: 36,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(255,255,255,0.12)',
+                  }}
+                />
+              </div>
+
+              <div className="max-w-3xl mx-auto px-6 pt-5 pb-8">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <p
+                      className="text-[10px] uppercase tracking-[0.14em] font-semibold mb-1.5"
+                      style={{ color: 'rgba(255,255,255,0.3)' }}
+                    >
+                      Optional step
+                    </p>
+                    <h3
+                      className="font-serif text-[22px] font-medium leading-tight"
+                      style={{ color: 'rgba(255,255,255,0.92)' }}
+                    >
+                      Elevate This
+                    </h3>
+                  </div>
+                  <p
+                    className="text-sm text-right max-w-[220px] leading-relaxed mt-1"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                  >
+                    Set the depth before enhancing — or skip and use defaults.
+                  </p>
+                </div>
+
+                {/* Depth chips */}
+                <div className="flex items-center gap-3 mb-7">
+                  {(['standard', 'advanced', 'expert'] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setDepth(d)}
+                      className="px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200"
+                      style={{
+                        border:
+                          depth === d
+                            ? '1px solid rgba(198,167,94,0.65)'
+                            : '1px solid rgba(255,255,255,0.1)',
+                        backgroundColor:
+                          depth === d
+                            ? 'rgba(198,167,94,0.1)'
+                            : 'rgba(255,255,255,0.04)',
+                        color:
+                          depth === d
+                            ? '#C6A75E'
+                            : 'rgba(255,255,255,0.45)',
+                      }}
+                    >
+                      {d.charAt(0).toUpperCase() + d.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-5">
+                  <button
+                    onClick={() => onElevate(depth)}
+                    className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium transition-all duration-200 hover:-translate-y-0.5"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.93)',
+                      color: '#0f1012',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    Elevate &amp; Enhance
+                    <ArrowRight size={14} strokeWidth={2.2} />
+                  </button>
+                  <button
+                    onClick={onSkip}
+                    className="text-sm font-medium transition-colors duration-150"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = 'rgba(255,255,255,0.65)')
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')
+                    }
+                  >
+                    Enhance as is
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function LandingPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>('input');
@@ -887,6 +1109,10 @@ export function LandingPage() {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [isElevating, setIsElevating] = useState(false);
   const [elevateCount, setElevateCount] = useState(0);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [showElevatePanel, setShowElevatePanel] = useState(false);
+  const [pendingElevateDepth, setPendingElevateDepth] = useState<'standard' | 'advanced' | 'expert' | undefined>();
   const [copyCount, setCopyCount] = useState(0);
   const [firstInteractionTime, setFirstInteractionTime] = useState<number | null>(null);
   const [showExtension, setShowExtension] = useState(false);
@@ -933,7 +1159,121 @@ export function LandingPage() {
     }
   }, [searchCount, elevateCount, copyCount, firstInteractionTime]);
   
-  const handleSearch = async () => {
+  // Fetch clarifying questions from the server before enhancing
+  const generateQuestions = async (prompt: string): Promise<Question[]> => {
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-e52adb92/generate-questions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({ input: prompt }),
+        }
+      );
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data.questions) ? data.questions : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Core enhance logic — accepts optional Q&A answers and elevation depth
+  const performEnhance = async (
+    answers: QuestionAnswer[],
+    depth?: 'standard' | 'advanced' | 'expert'
+  ) => {
+    setPhase('processing');
+
+    // Enrich the original prompt with answered questions
+    let enrichedInput = query;
+    const answered = answers.filter((a) => a.answer.trim());
+    if (answered.length > 0) {
+      enrichedInput +=
+        '\n\n--- Additional context ---\n' +
+        answered.map((a) => `${a.question}: ${a.answer}`).join('\n');
+    }
+
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-e52adb92/enhance`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({
+            input: enrichedInput,
+            context: {
+              intent_override: selectedIntent,
+              channel: 'ChatGPT',
+              tone: 'professional',
+              ...(depth ? { level: depth } : {}),
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Enhancement error:', response.status, errorText);
+
+        let errorMessage = 'Enhancement failed. Please try again.';
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.details) {
+            errorMessage = `Enhancement failed: ${errorData.details}`;
+          }
+        } catch {
+          if (errorText && errorText.length < 100) {
+            errorMessage = `Enhancement failed: ${errorText}`;
+          }
+        }
+
+        toast.error(errorMessage);
+        setPhase('input');
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!data || !data.enhanced_prompt) {
+        console.error('Invalid response from enhancement service');
+        toast.error('Enhancement failed. Please try again.');
+        setPhase('input');
+        return;
+      }
+
+      const generated: GeneratedResult = {
+        title: data.title || 'Enhanced Prompt',
+        prompt: data.enhanced_prompt,
+        improvements: Array.isArray(data.improvements) ? data.improvements : [],
+        intent: data.intent,
+        assumptions: Array.isArray(data.assumptions) ? data.assumptions : [],
+        follow_up_questions: Array.isArray(data.follow_up_questions) ? data.follow_up_questions : [],
+        routed_by: data.meta?.routed_by,
+      };
+
+      setResult(generated);
+      setPhase('result');
+      setSearchCount((prev) => prev + 1);
+
+      if (!session && searchCount >= 1) {
+        setTimeout(() => setShowSignupModal(true), 1500);
+      }
+    } catch (err) {
+      console.error('Enhancement error:', err);
+      toast.error('Enhancement failed. Please try again.');
+      setPhase('input');
+    }
+  };
+
+  // Intercept enhance — show the Elevate panel first
+  const handleSearch = () => {
     if (!query.trim()) {
       toast.error('Please enter a prompt to enhance');
       return;
@@ -943,84 +1283,45 @@ export function LandingPage() {
       toast.error('Prompt must be at least 10 characters');
       return;
     }
-    
-    setPhase('processing');
-    
-    try {
-      // Call the enhance endpoint on the server
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-e52adb92/enhance`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({ 
-          input: query,
-          context: {
-            intent_override: selectedIntent,
-            channel: 'ChatGPT',
-            tone: 'professional'
-          }
-        })
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Enhancement error:', response.status, errorText);
-        
-        // Try to parse error details
-        let errorMessage = 'Enhancement failed. Please try again.';
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.details) {
-            errorMessage = `Enhancement failed: ${errorData.details}`;
-          }
-        } catch (e) {
-          // If we can't parse, use the raw text
-          if (errorText && errorText.length < 100) {
-            errorMessage = `Enhancement failed: ${errorText}`;
-          }
-        }
-        
-        toast.error(errorMessage);
-        setPhase('input');
-        return;
-      }
+    setShowElevatePanel(true);
+  };
 
-      const data = await response.json();
+  // Move to the questioning phase with the given elevation depth
+  const proceedToQuestions = async (depth?: 'standard' | 'advanced' | 'expert') => {
+    setPendingElevateDepth(depth);
+    setPhase('questioning');
+    setIsGeneratingQuestions(true);
+    setQuestions([]);
 
-      // Validate response has required fields
-      if (!data || !data.enhanced_prompt) {
-        console.error('Invalid response from enhancement service');
-        toast.error('Enhancement failed. Please try again.');
-        setPhase('input');
-        return;
-      }
+    const fetchedQuestions = await generateQuestions(query);
+    setQuestions(fetchedQuestions);
+    setIsGeneratingQuestions(false);
 
-      // Map response to existing result format
-      const generated: GeneratedResult = {
-        title: data.title || 'Enhanced Prompt',
-        prompt: data.enhanced_prompt,
-        improvements: Array.isArray(data.improvements) ? data.improvements : [],
-        intent: data.intent,
-        assumptions: Array.isArray(data.assumptions) ? data.assumptions : [],
-        follow_up_questions: Array.isArray(data.follow_up_questions) ? data.follow_up_questions : [],
-        routed_by: data.meta?.routed_by
-      };
-
-      setResult(generated);
-      setPhase('result');
-      setSearchCount(prev => prev + 1);
-      
-      // Check for modal trigger if not logged in
-      if (!session && searchCount >= 1) {
-        setTimeout(() => setShowSignupModal(true), 1500);
-      }
-    } catch (err) {
-      console.error('Enhancement error:', err);
-      toast.error('Enhancement failed. Please try again.');
-      setPhase('input');
+    // If the server returned no questions, go straight to enhance
+    if (fetchedQuestions.length === 0) {
+      await performEnhance([], depth);
     }
+  };
+
+  const handleElevateAndProceed = (depth: 'standard' | 'advanced' | 'expert') => {
+    setShowElevatePanel(false);
+    proceedToQuestions(depth);
+  };
+
+  const handleProceedWithoutElevate = () => {
+    setShowElevatePanel(false);
+    proceedToQuestions(undefined);
+  };
+
+  // Called when the user completes or skips through all questions
+  const handleQuestionComplete = async (answers: QuestionAnswer[]) => {
+    await performEnhance(answers, pendingElevateDepth);
+  };
+
+  // Called when the user clicks "Skip all — enhance now"
+  const handleSkipAll = async () => {
+    await performEnhance([], pendingElevateDepth);
   };
 
   const handleCopy = () => {
@@ -1237,6 +1538,51 @@ export function LandingPage() {
             </motion.div>
           )}
 
+          {phase === 'questioning' && (
+            <motion.div
+              key="questioning"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.4, ease: [0.33, 1, 0.68, 1] }}
+              className="w-full"
+            >
+              {isGeneratingQuestions ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-5">
+                  <motion.div
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                    className="flex items-center gap-2"
+                  >
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ y: [0, -6, 0] }}
+                        transition={{
+                          duration: 0.9,
+                          repeat: Infinity,
+                          delay: i * 0.18,
+                          ease: 'easeInOut',
+                        }}
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: 'var(--text-muted)' }}
+                      />
+                    ))}
+                  </motion.div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                    Preparing your questions…
+                  </p>
+                </div>
+              ) : questions.length > 0 ? (
+                <QuestionFlow
+                  questions={questions}
+                  onComplete={handleQuestionComplete}
+                  onSkipAll={handleSkipAll}
+                />
+              ) : null}
+            </motion.div>
+          )}
+
           {phase === 'processing' && (
             <motion.div
               key="processing"
@@ -1285,9 +1631,15 @@ export function LandingPage() {
         )}
       </AnimatePresence>
 
+      <ElevateBottomPanel
+        isOpen={showElevatePanel}
+        onElevate={handleElevateAndProceed}
+        onSkip={handleProceedWithoutElevate}
+      />
+
       <Companion />
 
-      <SideSignupModal 
+      <SideSignupModal
         isOpen={showSignupModal} 
         onClose={() => setShowSignupModal(false)} 
         onSignup={handleSignup}
