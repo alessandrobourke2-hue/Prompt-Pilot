@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import * as ReactRouter from 'react-router';
-const { Link, useNavigate } = ReactRouter;
+const { Link, useNavigate, Navigate } = ReactRouter;
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase/client';
 import { usePilotStore } from '../state/pilotStore';
@@ -1097,6 +1097,8 @@ function ElevateBottomPanel({
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const isAuthed = usePilotStore((s) => s.account.isAuthed);
+  const authReady = usePilotStore((s) => s.authReady);
   const [phase, setPhase] = useState<Phase>('input');
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<GeneratedResult | null>(null);
@@ -1159,6 +1161,10 @@ export function LandingPage() {
     }
   }, [searchCount, elevateCount, copyCount, firstInteractionTime]);
   
+  if (authReady && isAuthed) {
+    return <Navigate to="/app" replace />;
+  }
+
   // Fetch clarifying questions from the server before enhancing
   const generateQuestions = async (prompt: string): Promise<Question[]> => {
     try {
