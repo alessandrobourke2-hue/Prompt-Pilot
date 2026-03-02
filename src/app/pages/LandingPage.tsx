@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowRight, 
@@ -9,7 +9,8 @@ import {
   ChevronUp, 
   ChevronDown,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Mouse
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import * as ReactRouter from 'react-router';
@@ -1095,6 +1096,58 @@ function ElevateBottomPanel({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+function ScrollIndicator() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setVisible(window.scrollY < 80);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.5, ease: [0.33, 1, 0.68, 1] }}
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40"
+        >
+          <button
+            onClick={() => window.scrollTo({ top: window.innerHeight * 0.75, behavior: 'smooth' })}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-medium backdrop-blur-xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.55)',
+              color: 'rgba(255, 255, 255, 0.85)',
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.08) inset',
+            }}
+          >
+            <motion.div
+              animate={{ y: [0, 3, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Mouse size={14} strokeWidth={1.8} />
+            </motion.div>
+            Scroll to explore
+            <motion.div
+              animate={{ y: [0, 2, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', delay: 0.15 }}
+            >
+              <ChevronDown size={12} strokeWidth={2.2} />
+            </motion.div>
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function LandingPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>('input');
@@ -1116,6 +1169,23 @@ export function LandingPage() {
   const [copyCount, setCopyCount] = useState(0);
   const [firstInteractionTime, setFirstInteractionTime] = useState<number | null>(null);
   const [showExtension, setShowExtension] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputWrapperRef = useRef<HTMLDivElement>(null);
+  const [isMultiLine, setIsMultiLine] = useState(false);
+
+  const autoResizeTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const newHeight = Math.min(el.scrollHeight, 200);
+    el.style.height = `${newHeight}px`;
+
+    setIsMultiLine(newHeight > 52);
+
+    if (newHeight > 52 && inputWrapperRef.current) {
+      inputWrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, []);
 
   // Rotate placeholders
   useEffect(() => {
@@ -1336,6 +1406,10 @@ export function LandingPage() {
     setPhase('input');
     setQuery('');
     setResult(null);
+    setIsMultiLine(false);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '28px';
+    }
   };
 
   const handleSignup = async (email: string, pass: string) => {
@@ -1459,36 +1533,48 @@ export function LandingPage() {
               </motion.p>
 
               <motion.div 
+                ref={inputWrapperRef}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.24, duration: 0.4, ease: [0.33, 1, 0.68, 1] }}
                 className="relative max-w-3xl mx-auto group"
               >
                 <div 
-                  className="relative rounded-full p-2.5 flex items-center transition-all duration-300 group-hover:shadow-lg"
+                  className="relative p-2.5 flex items-end group-hover:shadow-lg"
                   style={{ 
                     backgroundColor: 'var(--surface-elevated)', 
                     boxShadow: '0 8px 40px rgba(0, 0, 0, 0.08)',
-                    border: '1px solid var(--border-subtle)'
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: isMultiLine ? '1.5rem' : '9999px',
+                    transition: 'border-radius 0.3s ease, box-shadow 0.3s ease',
                   }}
                 >
-                  <div className="pl-6" style={{ color: 'var(--text-muted)' }}>
+                  <div className="pl-6 pb-4 pt-4 shrink-0" style={{ color: 'var(--text-muted)' }}>
                     <Search size={24} strokeWidth={1.8} />
                   </div>
-                  <input 
-                    type="text" 
+                  <textarea 
+                    ref={textareaRef}
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      requestAnimationFrame(autoResizeTextarea);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSearch();
+                      }
+                    }}
                     placeholder={ROTATING_PLACEHOLDERS[placeholderIndex]} 
-                    className="flex-1 bg-transparent border-none outline-none px-5 py-5 text-lg w-full font-medium placeholder:font-normal"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="flex-1 bg-transparent border-none outline-none px-5 py-4 text-lg w-full font-medium placeholder:font-normal resize-none"
+                    style={{ color: 'var(--text-primary)', height: '28px', minHeight: '28px', maxHeight: '200px', overflowY: isMultiLine ? 'auto' : 'hidden' }}
+                    rows={1}
                     autoFocus
                   />
                   <button 
                     onClick={handleSearch}
                     disabled={!query.trim() || phase === 'processing'}
-                    className="rounded-full p-4 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105"
+                    className="rounded-full p-4 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 shrink-0"
                     style={{ backgroundColor: '#1a1a1a', color: '#fff' }}
                   >
                     <ArrowRight size={20} strokeWidth={2.5} />
@@ -1630,6 +1716,8 @@ export function LandingPage() {
            </motion.div>
         )}
       </AnimatePresence>
+
+      {phase === 'input' && <ScrollIndicator />}
 
       <ElevateBottomPanel
         isOpen={showElevatePanel}
