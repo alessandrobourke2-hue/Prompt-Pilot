@@ -351,6 +351,151 @@ app.post("/make-server-e52adb92/signup", async (c) => {
 });
 
 // ============================================================================
+// GENERATE QUESTIONS ENDPOINT
+// ============================================================================
+
+app.post("/make-server-e52adb92/generate-questions", async (c) => {
+  try {
+    let body;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON in request body" }, 400);
+    }
+
+    const { input } = body;
+
+    if (!input || typeof input !== "string" || input.length < 10) {
+      return c.json({ error: "Input must be a string of at least 10 characters" }, 400);
+    }
+
+    if (!ANTHROPIC_API_KEY) {
+      return c.json({ questions: [] });
+    }
+
+    const systemPrompt = `You are a prompt enhancement specialist for PromptPilot. Your role is to generate 3-5 targeted clarifying questions that will significantly improve the user's prompt when answered.
+
+Analyse the prompt and identify the most impactful missing information. Ask about:
+- Target audience and their knowledge level
+- Desired tone, voice, or style
+- Specific goal or intended outcome
+- Expected output format or length
+- Key constraints, context, or requirements
+
+Return ONLY valid JSON matching this exact structure with no markdown or extra text:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Short, direct question ending with ?",
+      "type": "choice",
+      "options": ["Option A", "Option B", "Option C", "Option D"]
+    },
+    {
+      "id": "q2",
+      "question": "Open-ended question ending with ?",
+      "type": "text",
+      "placeholder": "e.g. relevant example answer..."
+    }
+  ]
+}
+
+Rules:
+- Generate exactly 3-5 questions
+- Mix "choice" and "text" types — use "choice" when there are 2-4 clear, mutually exclusive options; use "text" for nuanced, open-ended answers
+- Questions must be concise (under 12 words)
+- Choice options must be concise (under 6 words each), 2-4 options max
+- Do not ask about information already stated in the prompt
+- Prioritise the highest-impact questions first`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY!,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          system: systemPrompt,
+          messages: [
+            { role: "user", content: `Generate clarifying questions for this prompt:\n\n"${input}"` }
+          ],
+          temperature: 0.7,
+          max_tokens: 800,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(`Anthropic API error during question generation: ${response.status}`);
+        return c.json({ questions: [] });
+      }
+
+      const data = await response.json();
+      const aiContent = data.content[0]?.text;
+
+      if (!aiContent) {
+        return c.json({ questions: [] });
+      }
+
+      // Robust JSON extraction — strip any markdown fencing
+      let jsonText = aiContent.trim();
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) jsonText = jsonMatch[0];
+
+      try {
+        const parsed = JSON.parse(jsonText);
+        const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+
+        // Validate and sanitise each question
+        const validated = questions
+          .filter((q: any) =>
+            q &&
+            typeof q.id === "string" &&
+            typeof q.question === "string" &&
+            (q.type === "text" || q.type === "choice")
+          )
+          .slice(0, 5)
+          .map((q: any, i: number) => ({
+            id: q.id || `q${i + 1}`,
+            question: q.question,
+            type: q.type,
+            ...(q.type === "choice" && Array.isArray(q.options)
+              ? { options: q.options.slice(0, 4) }
+              : {}),
+            ...(q.type === "text" && q.placeholder
+              ? { placeholder: q.placeholder }
+              : {}),
+          }));
+
+        return c.json({ questions: validated });
+      } catch {
+        console.error("Failed to parse question generation response as JSON");
+        return c.json({ questions: [] });
+      }
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === "AbortError") {
+        console.error("Question generation request timed out");
+      } else {
+        console.error("Question generation request failed:", fetchError);
+      }
+      return c.json({ questions: [] });
+    }
+  } catch (error) {
+    console.error("Question generation error:", error);
+    return c.json({ questions: [] });
+  }
+});
+
+// ============================================================================
 // ENHANCEMENT ENDPOINT
 // ============================================================================
 
